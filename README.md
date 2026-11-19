@@ -1,5 +1,7 @@
 # Video Downloader
 
+**Languages:** [English](README.md) | [Português (Brasil)](README.pt-BR.md)
+
 Flutter app for discovering downloadable media from supported links and sharing
 it quickly from Android or iOS. YouTube videos are handled locally, while other
 supported extraction requests are sent to a configurable Python backend.
