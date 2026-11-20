@@ -153,6 +153,22 @@ class AppProvider extends ChangeNotifier {
         return;
       }
 
+      if (kReleaseMode &&
+          (detector == SupportedPlatform.instagram ||
+              detector == SupportedPlatform.generic)) {
+        final backend = Uri.tryParse(_settings.backendUrl);
+        final isLocalBackend =
+            backend != null &&
+            (backend.host == '127.0.0.1' || backend.host == 'localhost');
+        if (_settings.backendUrl.trim().isEmpty || isLocalBackend) {
+          _errorMessage =
+              'Configure um backend de extração público nas Configurações. '
+              'localhost só funciona durante o modo de desenvolvimento.';
+          notifyListeners();
+          return;
+        }
+      }
+
       final extractor = _resolveExtractor(uri);
       if (extractor == null) {
         _errorMessage = 'Não foi possível reconhecer o link. Tente outro URL.';
@@ -190,6 +206,26 @@ class AppProvider extends ChangeNotifier {
       _debugErrorDetails = kDebugMode ? '$message\n$stackTrace' : null;
       debugPrint('Erro ao buscar mídia: $message');
       debugPrintStack(stackTrace: stackTrace);
+      var userMessage =
+          'Não foi possível carregar a mídia. Verifique o link e tente novamente.';
+      if (error is DioException) {
+        switch (error.type) {
+          case DioExceptionType.connectionError:
+          case DioExceptionType.connectionTimeout:
+            userMessage =
+                'Backend indisponível. Configure uma URL de extração acessível '
+                'nas Configurações.';
+            break;
+          case DioExceptionType.receiveTimeout:
+            userMessage = 'A extração demorou demais. Tente novamente ou use outro backend.';
+            break;
+          case DioExceptionType.badResponse:
+            userMessage = 'O backend rejeitou a solicitação. Verifique a URL configurada.';
+            break;
+          default:
+            break;
+        }
+      }
       await _recordDebugReport(
         originalUrl: rawUrl,
         normalizedUrl: (() {
@@ -203,7 +239,7 @@ class AppProvider extends ChangeNotifier {
         errorMessage: message,
         stackTrace: stackTrace.toString(),
       );
-      _errorMessage = 'Não foi possível carregar a mídia. Verifique o link e tente novamente.';
+      _errorMessage = userMessage;
       _currentMedia = null;
       _currentOptions = const [];
     } finally {
