@@ -126,6 +126,12 @@ compartilhamento.
 Arquivos que não forem configurados para exclusão temporária permanecem na pasta
 Downloads e são registrados no Histórico.
 
+## Atalho no menu Compartilhar do Android
+
+Links do Instagram e YouTube Shorts podem ser enviados diretamente pelo menu
+Compartilhar do Android. O aplicativo reconhece o URL, extrai a mídia e abre
+automaticamente a tela de compartilhamento rápido.
+
 ## Segurança do backend e uso responsável
 
 - Implante o backend apenas em infraestrutura sob seu controle.

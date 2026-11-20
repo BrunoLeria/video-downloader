@@ -122,6 +122,12 @@ rápido** in Settings to delete the temporary file after sharing.
 Files that are not configured for temporary deletion remain in the Downloads
 directory and are recorded in History.
 
+## Android share shortcut
+
+Instagram links and YouTube Shorts can be shared directly from the Android share
+menu. The app recognizes the shared URL, extracts the media, and opens the
+quick-share sheet automatically.
+
 ## Backend security and responsible use
 
 - Deploy the backend only on infrastructure you control.
