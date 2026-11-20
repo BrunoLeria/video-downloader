@@ -3,6 +3,21 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('debug report JSON is replayable', () {
+    final data = jsonDecode('''{
+      "schemaVersion": 1,
+      "originalUrl": "https://www.instagram.com/reel/ABC123/",
+      "normalizedUrl": "https://www.instagram.com/reel/ABC123/",
+      "platform": "instagram",
+      "backendUrl": "http://127.0.0.1:8000",
+      "error": {"message": "connection timeout", "stackTrace": ""}
+    }''');
+
+    expect(data['originalUrl'], contains('instagram.com/reel/'));
+    expect(data['normalizedUrl'], isNotEmpty);
+    expect(data['backendUrl'], contains('8000'));
+  });
+
   group('Backend JSON contract', () {
     test('contem campos esperados', () {
       final data = jsonDecode('''{

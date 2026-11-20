@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:video_downloader/models/app_settings.dart';
 import 'package:video_downloader/providers/app_provider.dart';
+import 'package:video_downloader/screens/debug_reports_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -116,6 +117,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ).showSnackBar(const SnackBar(content: Text('Aviso revisado.')));
             },
             child: const Text('Rever aviso de uso'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const DebugReportsScreen()),
+            ),
+            icon: const Icon(Icons.bug_report),
+            label: Text(
+              'Relatórios de diagnóstico (${app.debugReports.length})',
+            ),
           ),
         ],
       ),

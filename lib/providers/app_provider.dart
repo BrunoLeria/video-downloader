@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_downloader/extractors/generic_extractor.dart';
 import 'package:video_downloader/extractors/instagram_extractor.dart';
 import 'package:video_downloader/extractors/media_extractor.dart';
@@ -11,6 +13,7 @@ import 'package:video_downloader/extractors/youtube_extractor.dart';
 import 'package:video_downloader/models/app_settings.dart';
 import 'package:video_downloader/models/download_history.dart';
 import 'package:video_downloader/models/download_task.dart';
+import 'package:video_downloader/models/debug_report.dart';
 import 'package:video_downloader/models/media_info.dart';
 import 'package:video_downloader/models/media_option.dart';
 import 'package:video_downloader/services/app_database.dart';
@@ -39,6 +42,7 @@ class AppProvider extends ChangeNotifier {
   List<MediaOption> _currentOptions = const [];
   List<DownloadTask> _downloads = const [];
   List<DownloadHistoryItem> _history = const [];
+  List<DebugReport> _debugReports = const [];
 
   AppSettings get settings => _settings;
   bool get isLoading => _isLoading;
@@ -49,6 +53,7 @@ class AppProvider extends ChangeNotifier {
   List<MediaOption> get currentOptions => _currentOptions;
   List<DownloadTask> get downloads => _downloads;
   List<DownloadHistoryItem> get history => _history;
+  List<DebugReport> get debugReports => _debugReports;
 
   MediaOption? get quickDownloadOption {
     if (_currentOptions.isEmpty) {
@@ -97,6 +102,7 @@ class AppProvider extends ChangeNotifier {
     ]);
     await _database.initialize();
     _history = await _database.fetchDownloads();
+    _debugReports = await _database.fetchDebugReports();
     await NotificationService.initialize();
     notifyListeners();
   }
@@ -160,6 +166,13 @@ class AppProvider extends ChangeNotifier {
       final info = await extractor.fetchInfo(uri);
       final options = await extractor.listOptions(info);
       if (options.isEmpty) {
+        await _recordDebugReport(
+          originalUrl: rawUrl,
+          normalizedUrl: normalized,
+          platform: detector.name,
+          errorMessage: 'Mídia indisponível ou privada.',
+          stackTrace: '',
+        );
         _errorMessage = 'Mídia indisponível ou privada.';
         _currentMedia = null;
         _currentOptions = const [];
@@ -177,6 +190,19 @@ class AppProvider extends ChangeNotifier {
       _debugErrorDetails = kDebugMode ? '$message\n$stackTrace' : null;
       debugPrint('Erro ao buscar mídia: $message');
       debugPrintStack(stackTrace: stackTrace);
+      await _recordDebugReport(
+        originalUrl: rawUrl,
+        normalizedUrl: (() {
+          try {
+            return UrlNormalizer.normalize(rawUrl);
+          } catch (_) {
+            return rawUrl.trim();
+          }
+        })(),
+        platform: PlatformDetector.detect(rawUrl).name,
+        errorMessage: message,
+        stackTrace: stackTrace.toString(),
+      );
       _errorMessage = 'Não foi possível carregar a mídia. Verifique o link e tente novamente.';
       _currentMedia = null;
       _currentOptions = const [];
@@ -375,6 +401,91 @@ class AppProvider extends ChangeNotifier {
     await _database.deleteDownload(id);
     _history = await _database.fetchDownloads();
     notifyListeners();
+  }
+
+  Future<void> refreshDebugReports() async {
+    _debugReports = await _database.fetchDebugReports();
+    notifyListeners();
+  }
+
+  Future<void> deleteDebugReport(int id) async {
+    await _database.deleteDebugReport(id);
+    _debugReports = await _database.fetchDebugReports();
+    notifyListeners();
+  }
+
+  Future<void> shareDebugReport(DebugReport report) async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text: report.toPrettyJson(),
+        subject: 'Video Downloader debug report',
+      ),
+    );
+  }
+
+  Future<bool> openDebugReportIssue(DebugReport report) async {
+    final body = report.toPrettyJson();
+    final uri = Uri.https(
+      'github.com',
+      '/BrunoLeria/video-downloader/issues/new',
+      {
+        'title':
+            'Instagram extraction failed: ${report.originalUrl.length > 80 ? '${report.originalUrl.substring(0, 80)}...' : report.originalUrl}',
+        'body': '```json\n$body\n```',
+        'labels': 'bug,debug-report',
+      },
+    );
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _recordDebugReport({
+    required String originalUrl,
+    required String normalizedUrl,
+    required String platform,
+    required String errorMessage,
+    required String stackTrace,
+  }) async {
+    final device = await _readDeviceDetails();
+    final report = DebugReport(
+      id: null,
+      createdAt: DateTime.now(),
+      originalUrl: originalUrl,
+      normalizedUrl: normalizedUrl,
+      platform: platform,
+      backendUrl: _settings.backendUrl,
+      errorMessage: errorMessage,
+      stackTrace: stackTrace,
+      appVersion: '1.0.0+1',
+      device: device,
+    );
+    await _database.insertDebugReport(report);
+    _debugReports = await _database.fetchDebugReports();
+  }
+
+  Future<Map<String, dynamic>> _readDeviceDetails() async {
+    final deviceInfo = DeviceInfoPlugin();
+    if (Platform.isAndroid) {
+      final info = await deviceInfo.androidInfo;
+      return {
+        'platform': 'android',
+        'manufacturer': info.manufacturer,
+        'model': info.model,
+        'androidVersion': info.version.release,
+        'sdkInt': info.version.sdkInt,
+        'device': info.device,
+      };
+    }
+    if (Platform.isIOS) {
+      final info = await deviceInfo.iosInfo;
+      return {
+        'platform': 'ios',
+        'model': info.model,
+        'name': info.name,
+        'systemName': info.systemName,
+        'systemVersion': info.systemVersion,
+      };
+    }
+    return {'platform': Platform.operatingSystem};
   }
 
   String _safeName(String input) {
