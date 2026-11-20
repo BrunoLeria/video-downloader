@@ -41,23 +41,57 @@ class _HomeScreenState extends State<HomeScreen> {
       if (sharedText.isEmpty) {
         return;
       }
-      _controller.text = sharedText;
-      _appProvider.fetchMedia(sharedText);
-      if (!mounted) {
-        return;
-      }
-      final app = _appProvider;
-      if (app.currentMedia != null && mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => PreviewScreen(
-              media: app.currentMedia!,
-              options: app.currentOptions,
-            ),
-          ),
-        );
+      _handleSharedLink(sharedText);
+    });
+    ReceiveSharingIntent.instance.getInitialMedia().then((media) {
+      final sharedText = media
+          .where(
+            (item) =>
+                item.type == SharedMediaType.url ||
+                item.type == SharedMediaType.text,
+          )
+          .map((item) => item.path)
+          .firstWhere((value) => value.trim().isNotEmpty, orElse: () => '');
+      if (sharedText.isNotEmpty) {
+        _handleSharedLink(sharedText);
       }
     });
+  }
+
+  Future<void> _handleSharedLink(String sharedText) async {
+    if (!mounted) {
+      return;
+    }
+
+    final extractedUrl = _extractUrl(sharedText);
+    if (extractedUrl == null) {
+      _controller.text = sharedText;
+      return;
+    }
+
+    _controller.text = extractedUrl;
+    await _appProvider.fetchMedia(extractedUrl);
+    if (!mounted) {
+      return;
+    }
+
+    final url = Uri.tryParse(extractedUrl);
+    final host = url?.host.toLowerCase() ?? '';
+    final isSupportedShare =
+        host.contains('instagram.com') ||
+        host.contains('youtube.com') ||
+        host.contains('youtu.be');
+    if (isSupportedShare) {
+      await _appProvider.quickDownload();
+    }
+  }
+
+  String? _extractUrl(String text) {
+    final match = RegExp(
+      r'https?:\/\/[^\s]+',
+      caseSensitive: false,
+    ).firstMatch(text);
+    return match?.group(0)?.replaceAll(RegExp(r'[)\]},.;]+$'), '');
   }
 
   @override
