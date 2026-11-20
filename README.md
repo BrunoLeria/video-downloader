@@ -9,7 +9,7 @@ supported extraction requests are sent to a configurable Python backend.
 ## Features
 
 - YouTube video and audio extraction
-- Instagram Reels and posts through the extraction backend
+- Instagram Reels and posts through the Android-native extractor
 - Platform detection and URL normalization
 - Download quality selection
 - Quick MP4 download and share flow

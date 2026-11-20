@@ -10,7 +10,7 @@ enviadas para um backend Python configurável.
 ## Funcionalidades
 
 - Extração de vídeo e áudio do YouTube
-- Reels e publicações do Instagram pelo backend de extração
+- Reels e publicações do Instagram pelo extrator nativo Android
 - Detecção de plataforma e normalização de URLs
 - Seleção da qualidade do download
 - Download rápido de MP4 e compartilhamento
