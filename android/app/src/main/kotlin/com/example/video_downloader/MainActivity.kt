@@ -4,8 +4,6 @@ import android.net.Uri
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import org.json.JSONArray
-import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
@@ -103,16 +101,66 @@ class MainActivity : FlutterActivity() {
             )
         }
 
-        val html = connection.inputStream.bufferedReader().use { it.readText() }
+        var html = connection.inputStream.bufferedReader().use { it.readText() }
         connection.disconnect()
 
+        val shortcode = Regex(
+            """/(?:reel|p|tv)/([A-Za-z0-9_-]+)""",
+        ).find(rawUrl)?.groupValues?.get(1)
+        if (shortcode != null) {
+            try {
+                val embedUrl = URL("https://www.instagram.com/reel/$shortcode/embed/captioned/")
+                val embedConnection = embedUrl.openConnection() as HttpURLConnection
+                embedConnection.requestMethod = "GET"
+                embedConnection.connectTimeout = 30_000
+                embedConnection.readTimeout = 60_000
+                embedConnection.instanceFollowRedirects = true
+                embedConnection.setRequestProperty(
+                    "User-Agent",
+                    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 " +
+                        "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+                )
+                embedConnection.setRequestProperty(
+                    "Accept",
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                )
+                embedConnection.setRequestProperty("Referer", "https://www.instagram.com/")
+                val embedStatus = embedConnection.responseCode
+                if (embedStatus in 200..299) {
+                    val embedHtml =
+                        embedConnection.inputStream.bufferedReader().use { it.readText() }
+                    html = "$html\n$embedHtml"
+                }
+                embedConnection.disconnect()
+            } catch (_: Exception) {
+                // Keep the original page as the source of metadata and direct URLs.
+            }
+        }
+
         val videoUrls = mutableSetOf<String>()
-        for (match in Regex(
-            """(?i)(?:["']video_url["']\s*:\s*["']|<meta[^>]+property=["']og:video(?::secure_url)?["'][^>]+content=["'])([^"'<]+)""",
-        ).findAll(html)) {
-            val candidate = decodeHtml(match.groupValues[1])
-            if (candidate.startsWith("http")) {
-                videoUrls.add(candidate.replace("\\/", "/"))
+        val escapedUrlPattern = Regex(
+            """https?:\\u002F\\u002F[^"'\s<]+|https?:\\/\\/[^"'\s<]+|https?://[^"'\s<]+""",
+            RegexOption.IGNORE_CASE,
+        )
+        for (match in escapedUrlPattern.findAll(html)) {
+            val candidate = decodeHtml(match.value)
+            if (isLikelyInstagramVideoUrl(candidate)) {
+                videoUrls.add(candidate)
+            }
+        }
+
+        val keyPatterns = listOf(
+            """"video_url"\s*:\s*"([^"]+)""",
+            """"(?:video_url|playback_url|contentUrl)"\s*:\s*"([^"]+)""",
+            """"base_url"\s*:\s*"([^"]+)""",
+            """"url"\s*:\s*"([^"]+\.(?:mp4|bin)[^"]*)""",
+        )
+        for (pattern in keyPatterns) {
+            for (match in Regex(pattern, RegexOption.IGNORE_CASE).findAll(html)) {
+                val candidate = decodeHtml(match.groupValues[1])
+                if (candidate.startsWith("http")) {
+                    videoUrls.add(candidate.replace("\\/", "/"))
+                }
             }
         }
 
@@ -198,6 +246,18 @@ class MainActivity : FlutterActivity() {
             it.groupValues[1].toInt(16).toChar().toString()
         }
         return decoded
+    }
+
+    private fun isLikelyInstagramVideoUrl(value: String): Boolean {
+        val decoded = decodeHtml(value)
+        if (!decoded.startsWith("http")) {
+            return false
+        }
+        val lower = decoded.lowercase()
+        return lower.contains("instagram.") ||
+            lower.contains("fbcdn.net") ||
+            lower.contains(".mp4") ||
+            lower.contains("video")
     }
 }
 
