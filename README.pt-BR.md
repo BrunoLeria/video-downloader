@@ -100,6 +100,22 @@ flutter analyze
 flutter test
 ```
 
+## Relatórios de diagnóstico
+
+Falhas de extração são armazenadas localmente e podem ser abertas em
+**Configurações > Relatórios de diagnóstico**.
+
+Cada relatório pode ser compartilhado como JSON ou aberto como uma issue
+preenchida no GitHub. Os relatórios exportados incluem os URLs original e
+normalizado, plataforma, URL do backend, erro, stack trace, versão do aplicativo
+e modelo do dispositivo.
+
+Reexecute um relatório exportado a partir da raiz do projeto:
+
+```powershell
+python backend\debug_report_replay.py debug-report.json
+```
+
 ## Compartilhamento rápido temporário
 
 A ação **Compartilhamento rápido (MP4)** baixa a melhor opção MP4 disponível e

@@ -98,6 +98,21 @@ flutter analyze
 flutter test
 ```
 
+## Debug reports
+
+Extraction failures are stored locally and can be opened from
+**Settings > Relatórios de diagnóstico**.
+
+Each report can be shared as JSON or opened as a prefilled GitHub issue. Exported
+reports include the original and normalized URLs, platform, backend URL, error,
+stack trace, app version, and device model.
+
+Replay an exported report from the project root:
+
+```powershell
+python backend\debug_report_replay.py debug-report.json
+```
+
 ## Temporary quick sharing
 
 The **Compartilhamento rápido (MP4)** action downloads the best available MP4 and
